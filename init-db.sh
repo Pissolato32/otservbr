@@ -8,20 +8,31 @@ if [ -d "/srv/tfs/data" ] && [ -z "$(ls -A /srv/tfs/data 2>/dev/null)" ]; then
     echo "Base datapack initialized."
 fi
 
-# The schema.sql is handled slightly differently since it's a single file mount
-# If Docker created an empty directory instead of a file due to a missing host file
-if [ -d "/srv/tfs/schema.sql" ]; then
-    echo "WARNING: /srv/tfs/schema.sql is a directory instead of a file."
-    echo "This happens when the host file doesn't exist before 'docker compose up'."
-    echo "Attempting to fix by moving directory and replacing with file..."
-    rm -rf /srv/tfs/schema.sql
-    cp /srv/tfs-base-data/schema.sql /srv/tfs/schema.sql
+echo "Checking for global map..."
+if [ ! -f "/srv/tfs/data/world/forgotten.otbm" ] || [ ! -s "/srv/tfs/data/world/forgotten.otbm" ]; then
+    echo "Global map missing or empty. Downloading compatible 8.60 map from otservme/global860..."
+    mkdir -p /srv/tfs/data/world
+
+    # Use || true to prevent set -e from fatally crashing the container if the URL goes 404 or network fails
+    if wget -qO /tmp/world.zip "https://raw.githubusercontent.com/otservme/global860/master/data/world.zip"; then
+        if unzip -qo /tmp/world.zip -d /tmp/world_extracted; then
+            # The zip usually extracts a 'world' folder or direct files. Move contents to target dir.
+            cp -rf /tmp/world_extracted/world/* /srv/tfs/data/world/ 2>/dev/null || cp -rf /tmp/world_extracted/* /srv/tfs/data/world/
+            echo "Map successfully downloaded and installed."
+        else
+            echo "WARNING: Failed to unzip the downloaded map file."
+        fi
+        rm -rf /tmp/world.zip /tmp/world_extracted
+    else
+        echo "WARNING: Failed to download the map from GitHub. You will need to download the map manually (check README)."
+    fi
+else
+    echo "Global map found."
 fi
 
-if [ ! -f "/srv/tfs/schema.sql" ]; then
-    echo "schema.sql is completely missing, copying base..."
-    cp /srv/tfs-base-data/schema.sql /srv/tfs/schema.sql
-fi
+# We use the schema from the base image directly instead of mounting a host file,
+# avoiding the 'schema.sql is a directory' Docker mount error entirely.
+SCHEMA_PATH="/srv/tfs-base-data/schema.sql"
 
 echo "Waiting for MySQL database to be ready..."
 until mysqladmin ping -h"$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --silent; do
@@ -34,7 +45,7 @@ TABLES=$(mysql -h"$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -D"$MYSQL_DAT
 
 if [ "$TABLES" -eq 0 ]; then
     echo "Initializing database..."
-    mysql -h"$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -D"$MYSQL_DATABASE" < /srv/tfs/schema.sql
+    mysql -h"$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -D"$MYSQL_DATABASE" < "$SCHEMA_PATH"
     echo "Database initialized."
 else
     echo "Database already initialized."

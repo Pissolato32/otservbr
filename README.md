@@ -13,22 +13,16 @@ To guarantee a successful compile and execution, the following technical choices
 2. **Lua Version:** The engine is compiled against `liblua5.1-0-dev` rather than `liblua5.4-dev`. TFS 0.4 C++ code uses Lua 5.1 C APIs, which break in 5.4.
 3. **MySQL Authentication:** MySQL 8.0 defaults to `caching_sha2_password` which breaks older C++ MySQL connectors. The container is configured with `--default-authentication-plugin=mysql_native_password` to allow TFS to authenticate successfully.
 
-## ⚠️ MANUAL STEP REQUIRED: Map Download
-Because large `.otbm` files are typically excluded from source control:
-1. Ensure the `./data/world` directory is generated on your host by starting the container once (`docker compose up -d`).
-2. Download a global 8.60 map (e.g., from [tibiamaps.io](https://tibiamaps.io)).
-3. Rename the downloaded `.otbm` file to `forgotten.otbm`.
-4. Place it inside the `./data/world/` directory.
-
 ## File Auto-Generation Note
-When you run `docker compose up -d` for the first time, Docker will mount the empty host `./data` directory into the container. The `init-db.sh` startup script will detect this, and automatically copy the default 8.60 datapack into the mounted volume so you can edit it locally!
-
-It will do the same for `schema.sql`. Note that due to how Docker handles single-file mounts, you might see `schema.sql/` show up as a directory on your host. Simply delete it and grab the real file from inside the container or let the script auto-fix it from within.
+When you run `docker compose up -d` for the first time:
+1. **Datapack:** Docker will mount the empty host `./data` directory into the container. The `init-db.sh` startup script will detect this and automatically copy the default 8.60 datapack into the mounted volume so you can edit it locally!
+2. **Global Map:** The startup script will also detect that the global `.otbm` map is missing from your local datapack and will **automatically download a compatible 8.60 map** (`forgotten.otbm`) from GitHub and place it in the correct `./data/world/` directory!
+3. **Database Schema:** We use the `schema.sql` baked directly into the Docker image instead of mounting it from your host to avoid Docker auto-creating an empty directory instead of a file.
 
 ## Folder Structure
 - `Dockerfile`: Configuration for building the TFS environment and compiling the source.
 - `docker-compose.yml`: Defines `db` (MySQL), `otserver` (TFS), and `adminer`.
-- `init-db.sh`: Entrypoint script ensuring the database is initialized idempotently and missing datapack files are seeded to the host.
+- `init-db.sh`: Entrypoint script ensuring the database is initialized idempotently, map is downloaded, and missing datapack files are seeded to the host.
 - `config.lua`: Automatically loads environment variables and configures TFS.
 
 ## How to Start the Server
@@ -36,11 +30,11 @@ It will do the same for `schema.sql`. Note that due to how Docker handles single
    ```bash
    docker compose up -d --build
    ```
-2. To view logs:
+2. Wait a minute for the first initialization (map downloading and database seeding).
+3. To view logs:
    ```bash
    docker compose logs -f otserver
    ```
-3. If the server complains about a missing map, perform the manual step mentioned above and restart.
 
 ## How to Connect
 1. Download a Tibia Client for version **8.60** (can be found on OTClient repositories or archive sites).

@@ -15,6 +15,7 @@ RUN apt-get update && \
     libssl-dev \
     libxml2-dev \
     libsqlite3-dev \
+    unzip wget \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /srv/tfs

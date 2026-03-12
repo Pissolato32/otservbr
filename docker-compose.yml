@@ -1,5 +1,3 @@
-
-
 services:
   db:
     image: mysql:8.0
@@ -26,7 +24,6 @@ services:
     volumes:
       - ./data:/srv/tfs/data
       - ./config.lua:/srv/tfs/config.lua
-      - ./schema.sql:/srv/tfs/schema.sql
     environment:
       SERVER_NAME: MyOTServer
       SERVER_IP: 127.0.0.1
