@@ -1,0 +1,51 @@
+
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: tfs-db
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: tibia
+      MYSQL_USER: tibia
+      MYSQL_PASSWORD: yourpassword
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  otserver:
+    build: .
+    container_name: tfs-otserver
+    depends_on:
+      - db
+    ports:
+      - "7171:7171"
+      - "7172:7172"
+    volumes:
+      - ./data:/srv/tfs/data
+      - ./config.lua:/srv/tfs/config.lua
+      - ./schema.sql:/srv/tfs/schema.sql
+    environment:
+      SERVER_NAME: MyOTServer
+      SERVER_IP: 127.0.0.1
+      MYSQL_HOST: db
+      MYSQL_DATABASE: tibia
+      MYSQL_USER: tibia
+      MYSQL_PASSWORD: yourpassword
+      LOGIN_PORT: 7171
+      GAME_PORT: 7172
+      STATUS_PORT: 7171
+    restart: on-failure
+
+  adminer:
+    image: adminer
+    container_name: tfs-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  db_data:
